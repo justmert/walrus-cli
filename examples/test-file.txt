@@ -1,0 +1,9 @@
+This is a test file for Walrus storage integration.
+
+The Walrus protocol provides decentralized storage with:
+- Content-addressable storage using blob IDs
+- Erasure coding for redundancy
+- On-chain coordination via Sui blockchain
+- Pay-per-use model with WAL tokens
+
+This file will be uploaded to demonstrate the integration works correctly.

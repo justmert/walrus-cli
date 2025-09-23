@@ -1,0 +1,143 @@
+# GoReleaser configuration
+# Documentation: https://goreleaser.com
+
+version: 2
+
+project_name: walrus-cli
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod download
+
+builds:
+  - id: walrus-cli
+    main: ./cmd/walrus-cli
+    binary: walrus-cli
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    # Exclude certain combinations
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+      - -X main.builtBy=goreleaser
+    # Custom build tags for embedding
+    tags:
+      - embed
+
+archives:
+  - id: walrus-cli
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - LICENSE*
+      - README.md
+      - CHANGELOG.md
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - '^chore:'
+      - Merge pull request
+      - Merge remote-tracking branch
+      - Merge branch
+  groups:
+    - title: 'Features'
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: 'Bug fixes'
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: 'Performance improvements'
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: Others
+      order: 999
+
+release:
+  github:
+    owner: walrus-rclone
+    name: mvp
+  draft: false
+  prerelease: auto
+  name_template: "{{.ProjectName}}-v{{.Version}}"
+  footer: |
+    ## Installation
+
+    ### macOS/Linux
+    ```bash
+    # Download and extract the appropriate archive from the assets below
+    # Or use the install script:
+    curl -sSL https://raw.githubusercontent.com/walrus-rclone/mvp/main/install.sh | bash
+    ```
+
+    ### Windows
+    Download the Windows zip file from the assets below and extract `walrus-cli.exe`.
+
+    ### Using Go
+    ```bash
+    go install github.com/walrus-rclone/mvp/cmd/walrus-cli@latest
+    ```
+
+    ## Quick Start
+    ```bash
+    walrus-cli setup  # Interactive setup
+    walrus-cli upload myfile.pdf
+    walrus-cli list
+    ```
+
+# Universal binaries for macOS
+universal_binaries:
+  - id: walrus-cli-darwin
+    ids:
+      - walrus-cli
+    replace: true
+    name_template: "{{ .ProjectName }}_{{ .Version }}_darwin_universal"
+
+# Homebrew tap configuration (for future use)
+brews:
+  - name: walrus-cli
+    homepage: https://github.com/walrus-rclone/mvp
+    description: "Walrus decentralized storage CLI with S3 integration"
+    license: "MIT"
+    repository:
+      owner: walrus-rclone
+      name: homebrew-tap
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    test: |
+      system "#{bin}/walrus-cli", "--version"
+    install: |
+      bin.install "walrus-cli"

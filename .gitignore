@@ -1,0 +1,54 @@
+# Binaries
+/walrus-cli
+cmd/walrus-cli/walrus-cli
+*.exe
+dist/
+build/
+
+# Go
+*.o
+*.a
+*.so
+vendor/
+go.sum
+
+# Testing
+*.test
+*.out
+coverage.html
+coverage.out
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Web UI
+web/walrus-ui/node_modules/
+web/walrus-ui/dist/
+web/walrus-ui/.vite/
+cmd/walrus-cli/web_dist/
+
+# Config and data
+walrus-config.yaml
+.walrus-rclone-index.json
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Go cache
+.gocache/
+
+.gitignore/
+CLAUDE.md
+AGENTS.md
+rfp.md
+scripts/
