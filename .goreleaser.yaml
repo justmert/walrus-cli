@@ -139,7 +139,6 @@ brews:
     commit_author:
       name: goreleaserbot
       email: bot@goreleaser.com
-    folder: Formula
     test: |
       system "#{bin}/walrus-cli", "--version"
     install: |
