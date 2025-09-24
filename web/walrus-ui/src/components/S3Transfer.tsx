@@ -71,13 +71,7 @@ export function S3Transfer({ walrusConfig }: S3TransferProps) {
   } = useS3Transfer(walrusConfig, credentials, isS3Connected, setIsS3Connected, addS3TransferredFile)
 
   const [showSecretKey, setShowSecretKey] = useState(false)
-  const [activeTab, setActiveTab] = useState(isS3Connected ? 'browse' : 'connect')
-
-  useEffect(() => {
-    if (isS3Connected && activeTab === 'connect') {
-      setActiveTab('browse')
-    }
-  }, [isS3Connected, activeTab])
+  const [activeTab, setActiveTab] = useState('connect')
 
   // Auto-reconnect on page load if credentials are persisted and marked as connected
   useEffect(() => {
@@ -85,15 +79,19 @@ export function S3Transfer({ walrusConfig }: S3TransferProps) {
       if (isS3Connected && credentials.accessKeyId && credentials.secretAccessKey && buckets.length === 0) {
         try {
           await connect()
+          // Only switch to browse tab if connection succeeds
+          setActiveTab('browse')
         } catch (error) {
-          // If auto-reconnect fails, don't show error - user can manually reconnect
+          // If auto-reconnect fails, reset connection state
           console.warn('Auto-reconnect failed:', error)
+          setIsS3Connected(false)
+          setActiveTab('connect')
         }
       }
     }
 
     autoReconnect()
-  }, [isS3Connected, credentials.accessKeyId, credentials.secretAccessKey, buckets.length, connect])
+  }, [isS3Connected, credentials.accessKeyId, credentials.secretAccessKey, buckets.length, connect, setIsS3Connected])
 
 
   const handleConnect = async () => {
@@ -161,7 +159,7 @@ export function S3Transfer({ walrusConfig }: S3TransferProps) {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="connect" disabled={isS3Connected}>Connect</TabsTrigger>
+          <TabsTrigger value="connect">Connect</TabsTrigger>
           <TabsTrigger value="browse" disabled={!isS3Connected}>Browse</TabsTrigger>
           <TabsTrigger value="transfer" disabled={!isS3Connected || selectedObjects.size === 0}>Transfer</TabsTrigger>
           <TabsTrigger value="results" disabled={transferResults.length === 0}>Results</TabsTrigger>

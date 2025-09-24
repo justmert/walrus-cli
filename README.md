@@ -13,11 +13,18 @@ A simple tool to upload, download, and manage files on Walrus storage.
 
 ## Installation
 
+### Using the install script (macOS/Linux)
 ```bash
-curl -sSL https://raw.githubusercontent.com/walrus-rclone/mvp/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/justmert/walrus-cli/master/install.sh | bash
 ```
 
-Or download from [releases](https://github.com/walrus-rclone/mvp/releases).
+### Using Go
+```bash
+go install github.com/justmert/walrus-cli/cmd/walrus-cli@latest
+```
+
+### Manual download
+Download pre-built binaries from [releases](https://github.com/justmert/walrus-cli/releases).
 
 ## Getting Started
 
@@ -45,13 +52,13 @@ walrus-cli web
 
 ## Web Interface
 
-Run `walrus-cli web` and open http://localhost:5173 in your browser for a simple drag-and-drop interface.
+Run `walrus-cli web` and open http://localhost:5173 in your browser for an interface.
 
 ## Building from Source
 
 ```bash
-git clone https://github.com/walrus-rclone/mvp.git
-cd mvp
+git clone https://github.com/justmert/walrus-cli.git
+cd walrus-cli
 make build
 ```
 

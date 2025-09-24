@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/walrus-rclone/mvp/backend"
+	"github.com/justmert/walrus-cli/backend"
 )
 
 var indexerCmd = &cobra.Command{

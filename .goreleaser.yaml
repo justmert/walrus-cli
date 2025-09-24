@@ -27,15 +27,15 @@ builds:
     ignore:
       - goos: windows
         goarch: arm64
+    # Custom build tags for embedding
+    tags:
+      - embed
     ldflags:
       - -s -w
       - -X main.version={{.Version}}
       - -X main.commit={{.Commit}}
       - -X main.date={{.Date}}
       - -X main.builtBy=goreleaser
-    # Custom build tags for embedding
-    tags:
-      - embed
 
 archives:
   - id: walrus-cli
@@ -52,7 +52,6 @@ archives:
     files:
       - LICENSE*
       - README.md
-      - CHANGELOG.md
 
 checksum:
   name_template: 'checksums.txt'
@@ -87,28 +86,28 @@ changelog:
 
 release:
   github:
-    owner: walrus-rclone
-    name: mvp
+    owner: justmert
+    name: walrus-cli
   draft: false
   prerelease: auto
   name_template: "{{.ProjectName}}-v{{.Version}}"
   footer: |
     ## Installation
 
-    ### macOS/Linux
+    ### Using the install script (macOS/Linux)
     ```bash
-    # Download and extract the appropriate archive from the assets below
-    # Or use the install script:
-    curl -sSL https://raw.githubusercontent.com/walrus-rclone/mvp/main/install.sh | bash
+    curl -sSL https://raw.githubusercontent.com/justmert/walrus-cli/master/install.sh | bash
     ```
-
-    ### Windows
-    Download the Windows zip file from the assets below and extract `walrus-cli.exe`.
 
     ### Using Go
     ```bash
-    go install github.com/walrus-rclone/mvp/cmd/walrus-cli@latest
+    go install github.com/justmert/walrus-cli/cmd/walrus-cli@latest
     ```
+
+    ### Manual download
+    Download the appropriate archive for your platform from the assets below:
+    - **macOS/Linux**: Extract and move `walrus-cli` to `/usr/local/bin`
+    - **Windows**: Extract `walrus-cli.exe` to your preferred location
 
     ## Quick Start
     ```bash
@@ -125,19 +124,19 @@ universal_binaries:
     replace: true
     name_template: "{{ .ProjectName }}_{{ .Version }}_darwin_universal"
 
-# Homebrew tap configuration (for future use)
-brews:
-  - name: walrus-cli
-    homepage: https://github.com/walrus-rclone/mvp
-    description: "Walrus decentralized storage CLI with S3 integration"
-    license: "MIT"
-    repository:
-      owner: walrus-rclone
-      name: homebrew-tap
-    commit_author:
-      name: goreleaserbot
-      email: bot@goreleaser.com
-    test: |
-      system "#{bin}/walrus-cli", "--version"
-    install: |
-      bin.install "walrus-cli"
+# Homebrew tap configuration (commented out until tap repository is created)
+# brews:
+#   - name: walrus-cli
+#     homepage: https://github.com/justmert/walrus-cli
+#     description: "Walrus decentralized storage CLI with S3 integration"
+#     license: "MIT"
+#     repository:
+#       owner: justmert
+#       name: homebrew-tap
+#     commit_author:
+#       name: goreleaserbot
+#       email: bot@goreleaser.com
+#     test: |
+#       system "#{bin}/walrus-cli", "--version"
+#     install: |
+#       bin.install "walrus-cli"
