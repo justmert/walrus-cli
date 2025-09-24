@@ -13,9 +13,14 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-REPO="walrus-rclone/mvp"
+REPO="justmert/walrus-cli"
 BINARY_NAME="walrus-cli"
-INSTALL_DIR="${INSTALL_DIR:-$HOME/bin}"
+# Default to user's local bin directory (no sudo needed)
+DEFAULT_INSTALL_DIR="$HOME/.local/bin"
+if [ ! -d "$DEFAULT_INSTALL_DIR" ]; then
+    DEFAULT_INSTALL_DIR="$HOME/bin"
+fi
+INSTALL_DIR="${INSTALL_DIR:-$DEFAULT_INSTALL_DIR}"
 
 # Functions
 log_error() {
@@ -47,18 +52,23 @@ detect_platform() {
     esac
 
     case "$ARCH" in
-        x86_64|amd64) ARCH_TYPE="amd64";;
+        x86_64|amd64) ARCH_TYPE="x86_64";;
         arm64|aarch64) ARCH_TYPE="arm64";;
         *) log_error "Unsupported architecture: $ARCH"; exit 1;;
     esac
+}
 
-    PLATFORM="${OS_TYPE}-${ARCH_TYPE}"
-
-    # Windows binaries have .exe extension
-    if [ "$OS_TYPE" = "windows" ]; then
-        BINARY_FILE="${BINARY_NAME}-${PLATFORM}.exe"
+# Construct archive filename based on VERSION and OS
+construct_archive_name() {
+    if [ "$OS_TYPE" = "darwin" ]; then
+        # macOS uses universal binary
+        ARCHIVE_FILE="${BINARY_NAME}_${VERSION#v}_Darwin_all.tar.gz"
+    elif [ "$OS_TYPE" = "windows" ]; then
+        ARCHIVE_FILE="${BINARY_NAME}_${VERSION#v}_Windows_${ARCH_TYPE}.zip"
     else
-        BINARY_FILE="${BINARY_NAME}-${PLATFORM}"
+        # Linux
+        OS_NAME="Linux"
+        ARCHIVE_FILE="${BINARY_NAME}_${VERSION#v}_${OS_NAME}_${ARCH_TYPE}.tar.gz"
     fi
 }
 
@@ -81,43 +91,101 @@ get_latest_release() {
     # Parse the version tag
     VERSION=$(echo "$RESPONSE" | grep '"tag_name":' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
 
-    if [ -z "$VERSION" ]; then
-        log_error "Could not determine latest version. Please check your internet connection."
-        exit 1
+    # If no release found, try getting the latest tag
+    if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
+        log_info "No releases found. Trying to fetch latest tag..."
+
+        TAGS_URL="https://api.github.com/repos/${REPO}/tags"
+        if command -v curl >/dev/null 2>&1; then
+            TAGS_RESPONSE=$(curl -s "$TAGS_URL")
+        else
+            TAGS_RESPONSE=$(wget -qO- "$TAGS_URL")
+        fi
+
+        VERSION=$(echo "$TAGS_RESPONSE" | grep '"name":' | head -1 | sed -E 's/.*"name": *"([^"]+)".*/\1/')
+
+        if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
+            log_error "Could not determine version. The release may still be building."
+            log_info "Check https://github.com/${REPO}/releases for available releases."
+            exit 1
+        fi
     fi
 
-    DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${BINARY_FILE}"
+    # Construct the archive filename after getting the version
+    construct_archive_name
+
+    DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${ARCHIVE_FILE}"
 }
 
 # Download and install binary
 install_binary() {
-    log_info "Downloading Walrus CLI ${VERSION} for ${PLATFORM}..."
+    log_info "Downloading Walrus CLI ${VERSION}..."
 
     # Create temp directory
     TMP_DIR=$(mktemp -d)
     trap "rm -rf $TMP_DIR" EXIT
 
-    # Download binary
+    # Download archive
+    ARCHIVE_PATH="${TMP_DIR}/${ARCHIVE_FILE}"
     if command -v curl >/dev/null 2>&1; then
-        curl -L -o "${TMP_DIR}/${BINARY_NAME}" "$DOWNLOAD_URL" || {
-            log_error "Failed to download binary"
+        curl -L -o "${ARCHIVE_PATH}" "$DOWNLOAD_URL" || {
+            log_error "Failed to download archive"
             exit 1
         }
     else
-        wget -O "${TMP_DIR}/${BINARY_NAME}" "$DOWNLOAD_URL" || {
-            log_error "Failed to download binary"
+        wget -O "${ARCHIVE_PATH}" "$DOWNLOAD_URL" || {
+            log_error "Failed to download archive"
             exit 1
         }
     fi
 
+    # Extract archive
+    log_info "Extracting archive..."
+    if [[ "$ARCHIVE_FILE" == *.tar.gz ]]; then
+        tar -xzf "${ARCHIVE_PATH}" -C "${TMP_DIR}" || {
+            log_error "Failed to extract archive"
+            exit 1
+        }
+    elif [[ "$ARCHIVE_FILE" == *.zip ]]; then
+        unzip -q "${ARCHIVE_PATH}" -d "${TMP_DIR}" || {
+            log_error "Failed to extract archive"
+            exit 1
+        }
+    fi
+
+    # Find the binary (it may have a different name in the archive)
+    BINARY_PATH="${TMP_DIR}/${BINARY_NAME}"
+    if [ ! -f "$BINARY_PATH" ]; then
+        # Look for binary with version suffix
+        VERSIONED_BINARY=$(find "$TMP_DIR" -name "${BINARY_NAME}*" -type f | head -1)
+        if [ -n "$VERSIONED_BINARY" ]; then
+            BINARY_PATH="$VERSIONED_BINARY"
+        else
+            log_error "Binary not found in archive"
+            exit 1
+        fi
+    fi
+
     # Make binary executable
-    chmod +x "${TMP_DIR}/${BINARY_NAME}"
+    chmod +x "${BINARY_PATH}"
 
     # Create install directory if it doesn't exist
-    mkdir -p "$INSTALL_DIR"
+    if [ ! -d "$INSTALL_DIR" ]; then
+        mkdir -p "$INSTALL_DIR" || {
+            log_error "Failed to create directory $INSTALL_DIR"
+            log_info "Try setting INSTALL_DIR to a writable location:"
+            log_info "  curl -sSL ... | INSTALL_DIR=~/bin bash"
+            exit 1
+        }
+    fi
 
     # Move binary to install directory
-    mv "${TMP_DIR}/${BINARY_NAME}" "${INSTALL_DIR}/${BINARY_NAME}"
+    mv "${BINARY_PATH}" "${INSTALL_DIR}/${BINARY_NAME}" || {
+        log_error "Failed to install to $INSTALL_DIR"
+        log_info "Try setting INSTALL_DIR to a writable location:"
+        log_info "  curl -sSL ... | INSTALL_DIR=~/bin bash"
+        exit 1
+    }
 
     log_success "Installed ${BINARY_NAME} to ${INSTALL_DIR}"
 }
@@ -127,7 +195,7 @@ check_path() {
     if [[ ":$PATH:" != *":${INSTALL_DIR}:"* ]]; then
         log_warning "${INSTALL_DIR} is not in your PATH"
         echo ""
-        echo "Add it to your PATH by adding this line to your shell profile:"
+        echo "To use walrus-cli from anywhere, add this to your PATH:"
         echo ""
 
         # Detect shell and provide appropriate instruction
@@ -191,16 +259,8 @@ main() {
         log_success "Installation complete!"
         echo ""
 
-        # Show version
-        "${INSTALL_DIR}/${BINARY_NAME}" version
-        echo ""
-
-        # Show next steps
-        echo "Get started with:"
-        echo "  ${BINARY_NAME} setup    # Configure Walrus"
-        echo "  ${BINARY_NAME} upload   # Upload files"
-        echo "  ${BINARY_NAME} list     # List stored files"
-        echo "  ${BINARY_NAME} web      # Launch web interface"
+        echo "For system-wide installation (optional):"
+        echo "  sudo mv ${INSTALL_DIR}/${BINARY_NAME} /usr/local/bin/"
         echo ""
     else
         log_error "Installation verification failed"

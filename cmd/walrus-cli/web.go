@@ -1,13 +1,10 @@
 package main
 
 import (
-	"errors"
 	"fmt"
-	"io"
 	"net/http"
-	"os"
 	"os/exec"
-	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/fatih/color"
@@ -16,145 +13,132 @@ import (
 
 func newWebCommand() *cobra.Command {
 	var background bool
+	var port string
 
 	cmd := &cobra.Command{
 		Use:   "web",
 		Short: "Start the Walrus web UI",
-		Long:  "Launch the Walrus web UI development server from this repository.",
+		Long:  "Launch the Walrus web UI and API server.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			uiPath, err := resolveWebUIPath()
-			if err != nil {
-				return err
-			}
-
-			if _, err := exec.LookPath("npm"); err != nil {
-				return errors.New("npm not found in PATH. Install Node.js to start the web UI")
-			}
-
-			pkgPath := filepath.Join(uiPath, "package.json")
-			if _, err := os.Stat(pkgPath); err != nil {
-				return fmt.Errorf("missing package.json at %s (expected Walrus web UI project)", pkgPath)
-			}
-
 			// Start API server in background first
 			fmt.Println(color.CyanString("🚀 Starting Walrus services..."))
 
-			if !isPortInUse("3002") {
-				fmt.Printf("Starting API server on port 3002...")
+			// Always start API server on port 3002
+			apiPort := "3002"
+			if !isPortInUse(apiPort) {
+				fmt.Printf("Starting API server on port %s...\n", apiPort)
 
-				// Always start API server as a goroutine
+				// Start API server as a goroutine
 				go func() {
 					mux := http.NewServeMux()
 					setupS3ProxyRoutes(mux)
+					setupBlobIndexerRoutes(mux)
+
 					mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
 						w.Header().Set("Content-Type", "application/json")
-						w.Header().Set("Access-Control-Allow-Origin", "*")
 						w.Write([]byte(`{"status":"ok"}`))
 					})
-					http.ListenAndServe(":3002", mux)
+
+					if err := http.ListenAndServe(":"+apiPort, corsMiddleware(mux)); err != nil {
+						fmt.Printf("API server error: %v\n", err)
+					}
 				}()
 
-				// Wait for server to start
-				time.Sleep(2 * time.Second)
+				// Wait for API server to start
+				time.Sleep(500 * time.Millisecond)
+				fmt.Println(color.GreenString("✓ API server running"))
+			} else {
+				fmt.Println(color.YellowString("API server already running on port " + apiPort))
+			}
 
-				// Verify it started
-				if isPortInUse("3002") {
-					fmt.Println(color.GreenString(" ✓"))
+			// Check if we have embedded web UI
+			if IsEmbedded() {
+				// Use embedded web UI
+				webFS, err := GetWebUIFS()
+				if err != nil {
+					return fmt.Errorf("failed to get embedded web UI: %w", err)
+				}
+
+				// Start web server for embedded UI
+				fmt.Printf("Starting web UI on port %s...\n", port)
+
+				mux := http.NewServeMux()
+
+				// Serve static files from embedded FS
+				fileServer := http.FileServer(webFS)
+				mux.Handle("/", fileServer)
+
+				webAddr := ":" + port
+
+				if background {
+					// Start in background
+					go func() {
+						if err := http.ListenAndServe(webAddr, mux); err != nil {
+							fmt.Printf("Web UI server error: %v\n", err)
+						}
+					}()
+
+					fmt.Println(color.GreenString("✓ Web UI started in background"))
+					fmt.Printf("\n📋 Web UI: http://localhost:%s\n", port)
+					fmt.Printf("📋 API Server: http://localhost:%s\n", apiPort)
+					return nil
 				} else {
-					fmt.Println(color.RedString(" ✗"))
-					fmt.Println(color.YellowString("Warning: API server may not have started properly"))
+					// Open browser
+					url := fmt.Sprintf("http://localhost:%s", port)
+					time.Sleep(1 * time.Second)
+					openBrowser(url)
+
+					fmt.Println(color.GreenString("✓ Web UI running"))
+					fmt.Printf("\n📋 Web UI: %s\n", url)
+					fmt.Printf("📋 API Server: http://localhost:%s\n", apiPort)
+					fmt.Println(color.CyanString("\nPress Ctrl+C to stop"))
+
+					// Start server (blocking)
+					return http.ListenAndServe(webAddr, mux)
 				}
 			} else {
-				fmt.Println(color.YellowString("API server already running on port 3002"))
+				// Development mode - try to run npm dev
+				return fmt.Errorf("web UI not embedded in this binary. Run from repository with source code or use a release build")
 			}
-
-			npmArgs := []string{"run", "dev", "--", "--host"}
-			npmCmd := exec.CommandContext(cmd.Context(), "npm", npmArgs...)
-			npmCmd.Dir = uiPath
-			npmCmd.Env = os.Environ()
-
-			if background {
-				// Start npm in background
-				npmCmd.Stdout = io.Discard
-				npmCmd.Stderr = io.Discard
-
-				if err := npmCmd.Start(); err != nil {
-					return fmt.Errorf("starting web UI in background: %w", err)
-				}
-
-				npmPID := npmCmd.Process.Pid
-
-				fmt.Fprintf(cmd.OutOrStdout(), "✓ Web UI running in background (PID %d). Open http://localhost:5173\n", npmPID)
-				fmt.Fprintf(cmd.OutOrStdout(), "✓ API server running on http://localhost:3002\n")
-				fmt.Fprintf(cmd.OutOrStdout(), "\nUse 'walrus-cli stop' to stop all background services\n")
-
-				// Important: Wait for npm process to keep the API server goroutine alive
-				// This blocks but since we're in background mode, the shell returns control
-				npmCmd.Wait()
-				return nil
-			}
-
-			npmCmd.Stdout = cmd.OutOrStdout()
-			npmCmd.Stderr = cmd.ErrOrStderr()
-			npmCmd.Stdin = os.Stdin
-
-			fmt.Printf("Starting web UI from %s...\n", uiPath)
-			fmt.Println(color.GreenString("✓ API server running on http://localhost:3002"))
-			fmt.Println(color.GreenString("✓ Web UI will be available at http://localhost:5173"))
-			fmt.Println(color.YellowString("\nBoth services are now ready for S3 to Walrus transfers!"))
-			if err := npmCmd.Run(); err != nil {
-				return fmt.Errorf("web UI exited with error: %w", err)
-			}
-			return nil
 		},
 	}
 
-	cmd.Flags().BoolVarP(&background, "background", "b", false, "run the web UI in the background")
+	cmd.Flags().BoolVarP(&background, "background", "b", false, "Run in background")
+	cmd.Flags().StringVarP(&port, "port", "p", "5173", "Port for the web UI")
+
 	return cmd
 }
 
-func resolveWebUIPath() (string, error) {
-	if env := os.Getenv("WALRUS_WEB_UI_PATH"); env != "" {
-		path := filepath.Clean(env)
-		if info, err := os.Stat(path); err == nil && info.IsDir() {
-			return path, nil
+func openBrowser(url string) {
+	var err error
+	switch runtime.GOOS {
+	case "darwin":
+		err = exec.Command("open", url).Start()
+	case "linux":
+		err = exec.Command("xdg-open", url).Start()
+	case "windows":
+		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	default:
+		err = fmt.Errorf("unsupported platform")
+	}
+	if err != nil {
+		fmt.Printf("Could not open browser: %v\n", err)
+		fmt.Printf("Please open %s manually\n", url)
+	}
+}
+
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
 		}
-		return "", fmt.Errorf("WALRUS_WEB_UI_PATH=%s does not point to a valid directory", env)
-	}
 
-	candidates := []string{
-		filepath.Join(".", "web", "walrus-ui"),
-		filepath.Join("web", "walrus-ui"),
-	}
-
-	if wd, err := os.Getwd(); err == nil {
-		candidates = append(candidates, filepath.Join(wd, "web", "walrus-ui"))
-	}
-
-	if exePath, err := os.Executable(); err == nil {
-		exeDir := filepath.Dir(exePath)
-		candidates = append(candidates,
-			filepath.Join(exeDir, "web", "walrus-ui"),
-			filepath.Join(exeDir, "..", "web", "walrus-ui"),
-		)
-	}
-
-	seen := make(map[string]struct{})
-	for _, candidate := range candidates {
-		abs, err := filepath.Abs(candidate)
-		if err != nil {
-			continue
-		}
-		if _, ok := seen[abs]; ok {
-			continue
-		}
-		seen[abs] = struct{}{}
-
-		if info, err := os.Stat(abs); err == nil && info.IsDir() {
-			return abs, nil
-		}
-	}
-
-	return "", errors.New("could not locate the web UI directory. Set WALRUS_WEB_UI_PATH or run the CLI from the repository root")
+		next.ServeHTTP(w, r)
+	})
 }
 
