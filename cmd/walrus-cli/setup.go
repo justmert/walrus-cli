@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/walrus-rclone/mvp/backend"
+	"github.com/justmert/walrus-cli/backend"
 )
 
 // InteractiveSetup guides the user through configuration

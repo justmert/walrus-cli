@@ -14,10 +14,10 @@ A simple tool to upload, download, and manage files on Walrus storage.
 ## Installation
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/walrus-rclone/mvp/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/justmert/walrus-cli/main/install.sh | bash
 ```
 
-Or download from [releases](https://github.com/walrus-rclone/mvp/releases).
+Or download from [releases](https://github.com/justmert/walrus-cli/releases).
 
 ## Getting Started
 
@@ -50,8 +50,8 @@ Run `walrus-cli web` and open http://localhost:5173 in your browser for a simple
 ## Building from Source
 
 ```bash
-git clone https://github.com/walrus-rclone/mvp.git
-cd mvp
+git clone https://github.com/justmert/walrus-cli.git
+cd walrus-cli
 make build
 ```
 

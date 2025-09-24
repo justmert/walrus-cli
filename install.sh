@@ -13,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-REPO="walrus-rclone/mvp"
+REPO="justmert/walrus-cli"
 BINARY_NAME="walrus-cli"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/bin}"
 

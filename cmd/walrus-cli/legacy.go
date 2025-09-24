@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/walrus-rclone/mvp/backend"
+	"github.com/justmert/walrus-cli/backend"
 )
 
 // FileIndex manages local file mappings

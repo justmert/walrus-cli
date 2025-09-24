@@ -52,7 +52,6 @@ archives:
     files:
       - LICENSE*
       - README.md
-      - CHANGELOG.md
 
 checksum:
   name_template: 'checksums.txt'
@@ -87,8 +86,8 @@ changelog:
 
 release:
   github:
-    owner: walrus-rclone
-    name: mvp
+    owner: justmert
+    name: walrus-cli
   draft: false
   prerelease: auto
   name_template: "{{.ProjectName}}-v{{.Version}}"
@@ -99,7 +98,7 @@ release:
     ```bash
     # Download and extract the appropriate archive from the assets below
     # Or use the install script:
-    curl -sSL https://raw.githubusercontent.com/walrus-rclone/mvp/main/install.sh | bash
+    curl -sSL https://raw.githubusercontent.com/justmert/walrus-cli/main/install.sh | bash
     ```
 
     ### Windows
@@ -107,7 +106,7 @@ release:
 
     ### Using Go
     ```bash
-    go install github.com/walrus-rclone/mvp/cmd/walrus-cli@latest
+    go install github.com/justmert/walrus-cli/cmd/walrus-cli@latest
     ```
 
     ## Quick Start
@@ -125,19 +124,19 @@ universal_binaries:
     replace: true
     name_template: "{{ .ProjectName }}_{{ .Version }}_darwin_universal"
 
-# Homebrew tap configuration (for future use)
-brews:
-  - name: walrus-cli
-    homepage: https://github.com/walrus-rclone/mvp
-    description: "Walrus decentralized storage CLI with S3 integration"
-    license: "MIT"
-    repository:
-      owner: walrus-rclone
-      name: homebrew-tap
-    commit_author:
-      name: goreleaserbot
-      email: bot@goreleaser.com
-    test: |
-      system "#{bin}/walrus-cli", "--version"
-    install: |
-      bin.install "walrus-cli"
+# Homebrew tap configuration (commented out until tap repository is created)
+# brews:
+#   - name: walrus-cli
+#     homepage: https://github.com/justmert/walrus-cli
+#     description: "Walrus decentralized storage CLI with S3 integration"
+#     license: "MIT"
+#     repository:
+#       owner: justmert
+#       name: homebrew-tap
+#     commit_author:
+#       name: goreleaserbot
+#       email: bot@goreleaser.com
+#     test: |
+#       system "#{bin}/walrus-cli", "--version"
+#     install: |
+#       bin.install "walrus-cli"

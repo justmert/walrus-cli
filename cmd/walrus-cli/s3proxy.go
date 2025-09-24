@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/walrus-rclone/mvp/backend"
+	"github.com/justmert/walrus-cli/backend"
 )
 
 type S3ProxyRequest struct {

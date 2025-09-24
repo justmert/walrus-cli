@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/walrus-rclone/mvp/backend"
+	"github.com/justmert/walrus-cli/backend"
 )
 
 func setupBlobIndexerRoutes(mux *http.ServeMux) {
