@@ -54,6 +54,21 @@ walrus-cli web
 
 Run `walrus-cli web` and open http://localhost:5173 in your browser for an interface.
 
+### S3 Transfer
+
+Transfer files from AWS S3 to Walrus storage directly from the web interface.
+
+#### Getting AWS Credentials
+
+For enhanced security, use temporary session tokens:
+
+```bash
+# Generate temporary credentials (valid for 1 hour)
+aws sts get-session-token --duration-seconds 3600
+```
+
+Use the returned `AccessKeyId`, `SecretAccessKey`, and `SessionToken` in the web interface.
+
 ## Building from Source
 
 ```bash
