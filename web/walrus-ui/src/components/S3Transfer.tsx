@@ -73,25 +73,14 @@ export function S3Transfer({ walrusConfig }: S3TransferProps) {
   const [showSecretKey, setShowSecretKey] = useState(false)
   const [activeTab, setActiveTab] = useState('connect')
 
-  // Auto-reconnect on page load if credentials are persisted and marked as connected
+  // Reset connection state if previously connected but no buckets
   useEffect(() => {
-    const autoReconnect = async () => {
-      if (isS3Connected && credentials.accessKeyId && credentials.secretAccessKey && buckets.length === 0) {
-        try {
-          await connect()
-          // Only switch to browse tab if connection succeeds
-          setActiveTab('browse')
-        } catch (error) {
-          // If auto-reconnect fails, reset connection state
-          console.warn('Auto-reconnect failed:', error)
-          setIsS3Connected(false)
-          setActiveTab('connect')
-        }
-      }
+    if (isS3Connected && buckets.length === 0) {
+      // If marked as connected but no buckets, reset the connection state
+      setIsS3Connected(false)
+      setActiveTab('connect')
     }
-
-    autoReconnect()
-  }, [isS3Connected, credentials.accessKeyId, credentials.secretAccessKey, buckets.length, connect, setIsS3Connected])
+  }, [])
 
 
   const handleConnect = async () => {
